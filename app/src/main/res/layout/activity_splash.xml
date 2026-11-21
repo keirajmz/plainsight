@@ -1,0 +1,15 @@
+
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/imagenSplash"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/logo_with_points_blue"
+        android:scaleType="centerCrop"
+        android:contentDescription="@null" />
+
+</FrameLayout>
