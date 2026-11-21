@@ -35,9 +35,12 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.io.File
 import java.util.Locale
 import kotlin.math.abs
+import com.google.mlkit.vision.label.ImageLabeling
+import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
+
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
-
+    private var rutaUltimaFoto: String? = null
     private lateinit var botonCapturar: ImageButton
     private lateinit var vistaCamara: PreviewView
     private lateinit var mensajeCamara: TextView
@@ -49,6 +52,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     }
 
+    private val etiquetador by lazy {
+        ImageLabeling.getClient(
+            ImageLabelerOptions.DEFAULT_OPTIONS
+        )
+    }
+
     private var camara: Camera? = null
     private var captura: ImageCapture? = null
     private var microfono: SpeechRecognizer? = null
@@ -58,7 +67,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private var textoActual = ""
     private var escuchando = false
 
-    // La foto queda pendiente hasta escuchar una confirmación afirmativa.
+
+    // La foto queda pendiente hasta e  scuchar una confirmación afirmativa.
     private data class EscaneoPendiente(
         val foto: File,
         val texto: String,
@@ -114,14 +124,18 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         File(cacheDir, "escaneos_pendientes").listFiles()?.forEach { it.delete() }
         voz = TextToSpeech(this, this)
 
+
         detectorGestos = GestureDetector(
             this,
             object : GestureDetector.SimpleOnGestureListener() {
+
                 override fun onDown(e: MotionEvent): Boolean = true
 
-                // Pulsación larga: escuchar una instrucción de voz.
+                // Mantener pulsado: escuchar comandos de voz
                 override fun onLongPress(e: MotionEvent) {
-                    vistaCamara.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    vistaCamara.performHapticFeedback(
+                        HapticFeedbackConstants.LONG_PRESS
+                    )
                     solicitarEscucha()
                 }
 
@@ -131,18 +145,21 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     velocityX: Float,
                     velocityY: Float
                 ): Boolean {
+
                     if (e1 == null) return false
+
                     val diferenciaX = e2.x - e1.x
                     val diferenciaY = e2.y - e1.y
-                    val distanciaMinima = 100 * resources.displayMetrics.density
 
+                    val distanciaMinima =
+                        100 * resources.displayMetrics.density
 
+                    // DESLIZAR A LA DERECHA: GALERÍA
                     if (
                         diferenciaX > distanciaMinima &&
                         abs(diferenciaX) > abs(diferenciaY) &&
                         abs(velocityX) > 300
                     ) {
-                        // Abrir la galería al deslizar hacia la derecha
                         val intent = Intent(
                             this@MainActivity,
                             GaleriaActivity::class.java
@@ -152,19 +169,28 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         return true
                     }
 
+                    // DESLIZAR HACIA ARRIBA: LINTERNA
                     if (
-                        diferenciaX > distanciaMinima &&
-                        abs(diferenciaX) > abs(diferenciaY) &&
-                        abs(velocityX) > 300
+                        diferenciaY < -distanciaMinima &&
+                        abs(diferenciaY) > abs(diferenciaX) &&
+                        abs(velocityY) > 300
                     ) {
-                        anunciarHistorial()
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Deslizamiento hacia arriba detectado",
+                            Toast.LENGTH_SHORT
+                        ).show()
+
+                        alternarLinterna()
                         return true
                     }
+
                     return false
                 }
             }
         )
 
+// Detectar los gestos sobre la cámara
         vistaCamara.setOnTouchListener { _, evento ->
             detectorGestos.onTouchEvent(evento)
             true
@@ -172,6 +198,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         comprobarPermisoCamara()
     }
+
 
     override fun onInit(status: Int) {
         if (status != TextToSpeech.SUCCESS) return
@@ -324,37 +351,106 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         )
     }
 
+
     private fun analizarFotografia(archivo: File) {
         try {
-            val imagen = InputImage.fromFilePath(this, Uri.fromFile(archivo))
+            val imagen = InputImage.fromFilePath(
+                this,
+                Uri.fromFile(archivo)
+            )
+
             reconocedor.process(imagen)
                 .addOnSuccessListener { resultado ->
-                    proponerGuardado(archivo, resultado.text.trim())
+                    analizarEtiquetas(
+                        archivo,
+                        imagen,
+                        resultado.text.trim()
+                    )
                 }
                 .addOnFailureListener {
-                    // Aun sin OCR, la foto puede guardarse como «Sin clasificar».
-                    proponerGuardado(archivo, "")
+                    analizarEtiquetas(archivo, imagen, "")
                 }
-                .addOnCompleteListener { tomandoFoto = false }
+
         } catch (e: Exception) {
+            guardarYLeerAutomaticamente(
+                archivo,
+                "",
+                emptyList()
+            )
             tomandoFoto = false
-            proponerGuardado(archivo, "")
         }
     }
 
-    private fun proponerGuardado(foto: File, texto: String) {
-        val carpeta = ClasificadorDocumentos.detectar(texto)
-        pendiente = EscaneoPendiente(foto, texto, carpeta)
-        val descripcion = if (carpeta == "Sin clasificar") {
-            "No pude identificar una categoría."
-        } else {
-            "Creo que es un documento de la categoría $carpeta."
+    private fun analizarEtiquetas(
+        archivo: File,
+        imagen: InputImage,
+        texto: String
+    ) {
+
+        try {
+            etiquetador.process(imagen)
+                .addOnSuccessListener { resultados ->
+
+                    val etiquetas = resultados
+                        .filter { it.confidence >= 0.65f }
+                        .map { it.text }
+
+                    // Clasificar, guardar y leer el documento
+                    guardarYLeerAutomaticamente(
+                        archivo,
+                        texto,
+                        etiquetas
+                    )
+                }
+                .addOnFailureListener {
+
+                    // Guardar aunque falle el análisis visual
+                    guardarYLeerAutomaticamente(
+                        archivo,
+                        texto,
+                        emptyList()
+                    )
+                }
+                .addOnCompleteListener {
+                    tomandoFoto = false
+                }
+
+        } catch (e: Exception) {
+            guardarYLeerAutomaticamente(
+                archivo,
+                texto,
+                emptyList()
+            )
+            tomandoFoto = false
         }
-        hablar(
-            "$descripcion ¿Quieres guardar la fotografía en la carpeta $carpeta? " +
-                    "Di sí o no. También puedes decir guardar sin clasificar.",
-            ::solicitarEscucha
+    }
+
+
+    private fun proponerGuardado(foto: File, texto: String) {
+        guardarYLeerAutomaticamente(foto, texto)
+    }
+
+    // Clasificar, guardar y leer sin pedir confirmación
+    private fun guardarYLeerAutomaticamente(
+        fotoTemporal: File,
+        texto: String,
+        etiquetas: List<String> = emptyList()
+    ) {
+        // Identificar la categoría del documento
+        val carpeta = ClasificadorDocumentos.detectar(
+            texto,
+            etiquetas
         )
+
+        // Preparar el documento para guardarlo
+        pendiente = EscaneoPendiente(
+            fotoTemporal,
+            texto,
+            carpeta
+        )
+
+        // Guardarlo directamente, sin preguntar
+        guardarConfirmado()
     }
 
     private fun interpretarConfirmacion(frase: String) {
@@ -402,6 +498,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
             try {
                 historial.guardar(actual.texto, destino.absolutePath, categoria)
+                rutaUltimaFoto = destino.absolutePath
             } catch (e: Exception) {
                 // No se elimina la foto: así evitamos perder el escaneo.
                 hablar("La foto está en el teléfono, pero no pude registrarla en el historial.")
@@ -550,11 +647,48 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             "o leer documento dos."
                 )
             }
-            else -> hablar(
-                "Todavía no conozco ese comando. Di ayuda para escuchar las opciones."
-            )
+
+            else -> {
+                val esPreguntaVisual =
+                    frase.startsWith("que ") ||
+                            frase.startsWith("de que ") ||
+                            frase.startsWith("cual ") ||
+                            frase.startsWith("cuanto ") ||
+                            frase.startsWith("cuantos ") ||
+                            frase.startsWith("como es ") ||
+                            frase.startsWith("donde esta ") ||
+                            frase.contains("que hay en la foto") ||
+                            frase.contains("que ves")
+
+                if (esPreguntaVisual) {
+                    consultarFotografiaActual(fraseOriginal)
+                } else {
+                    hablar(
+                        "No reconozco esa instrucción. " +
+                                "Puedes decir ayuda para conocer los comandos."
+                    )
+                }
+            }
+
         }
     }
+
+
+    private fun consultarFotografiaActual(pregunta: String) {
+
+        // Recuperar la última fotografía disponible
+        val ruta = rutaUltimaFoto
+            ?: historial.ultimos(1).firstOrNull()?.rutaFoto
+
+        // La fotografía y la pregunta ya están preparadas.
+        // Aquí conectaremos el modelo de inteligencia visual.
+        hablar(
+            "He recibido tu pregunta sobre la fotografía. " +
+                    "Todavía necesito conectar el análisis visual " +
+                    "para darte una respuesta basada en la imagen."
+        )
+    }
+
 
     private fun anunciarHistorial() {
         documentosEnVista = historial.ultimos(5)
@@ -647,6 +781,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         pendiente?.foto?.takeIf { it.parentFile == File(cacheDir, "escaneos_pendientes") }?.delete()
         microfono?.destroy()
         reconocedor.close()
+        etiquetador.close()
         historial.close()
         if (::voz.isInitialized) {
             voz.stop()
