@@ -47,14 +47,18 @@ class GaleriaActivity : AppCompatActivity() {
             R.id.textoBuscando
         )
 
-        // Consultar fotografías del almacenamiento local
+
         val fotografias = historial.ultimos(200)
 
-        titulo.text = if (fotografias.isEmpty()) {
-            "Todavía no hay fotografías guardadas"
-        } else {
-            "${fotografias.size} fotografías guardadas"
+// Consultar cuántas fotografías hay en la base de datos
+        val totalFotos = historial.contarFotos()
+
+        titulo.text = when (totalFotos) {
+            0 -> "Todavía no hay fotografías guardadas"
+            1 -> "1 fotografía guardada"
+            else -> "$totalFotos fotografías guardadas"
         }
+
 
         // Cuatro columnas, como en el prototipo
         galeria.layoutManager = GridLayoutManager(this, 4)

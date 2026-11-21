@@ -102,4 +102,19 @@ class HistorialDbHelper(context: Context) :
         }
         return encontrados
     }
+
+    // Contar fotografías guardadas
+    fun contarFotos(): Int {
+        return readableDatabase.rawQuery(
+            "SELECT COUNT(*) FROM escaneos",
+            null
+        ).use { cursor ->
+            if (cursor.moveToFirst()) {
+                cursor.getInt(0)
+            } else {
+                0
+            }
+        }
+    }
+
 }
