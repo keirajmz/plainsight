@@ -48,5 +48,6 @@ dependencies {
     implementation("androidx.camera:camera-view:1.6.2")
     // Reconocimiento de texto con ML Kit
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
 
 }

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#063957">
+
+    <!-- Encabezado -->
+    <TextView
+        android:id="@+id/tituloGaleria"
+        android:layout_width="match_parent"
+        android:layout_height="70dp"
+        android:gravity="center"
+        android:text="PLAINSIGHT"
+        android:textColor="#BFEFFF"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:background="#12B5E5" />
+
+    <!-- Texto superior -->
+    <TextView
+        android:id="@+id/textoBuscando"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="Buscando..."
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp" />
+
+    <!-- Contenedor de la galería -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerGaleria"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="16dp"
+        android:clipToPadding="false" />
+
+</LinearLayout>

@@ -29,17 +29,26 @@
 
     </FrameLayout>
 
-    <!-- Instrucciones -->
+    <!-- Mensajes internos, ocultos en pantalla -->
     <TextView
         android:id="@+id/mensajeCamara"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:background="#B3000000"
-        android:gravity="center"
-        android:padding="18dp"
-        android:text="Apunta hacia un documento"
-        android:textColor="#FFFFFF"
-        android:textSize="18sp" />
+        android:visibility="gone" />
 
+
+    <ImageButton
+        android:id="@+id/botonCapturar"
+        android:layout_width="180dp"
+        android:layout_height="180dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="20dp"
+        android:background="@android:color/transparent"
+        android:src="@drawable/boton_1_trim"
+        android:scaleType="fitCenter"
+        android:padding="0dp"
+        android:contentDescription="Tomar fotografía"
+        android:focusable="true"
+        android:clickable="true"
+        android:elevation="8dp" />
 </FrameLayout>

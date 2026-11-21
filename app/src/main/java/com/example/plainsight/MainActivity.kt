@@ -15,6 +15,7 @@ import android.view.GestureDetector
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,6 +38,7 @@ import kotlin.math.abs
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
+    private lateinit var botonCapturar: ImageButton
     private lateinit var vistaCamara: PreviewView
     private lateinit var mensajeCamara: TextView
     private lateinit var detectorGestos: GestureDetector
@@ -88,6 +90,21 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         vistaCamara = findViewById(R.id.vistaCamara)
         mensajeCamara = findViewById(R.id.mensajeCamara)
+        botonCapturar = findViewById(R.id.botonCapturar)
+
+        // El botón del ojo sustituye al doble toque para capturar.
+        botonCapturar.setImageResource(R.drawable.boton_1_trim)
+        botonCapturar.setOnClickListener {
+            botonCapturar.isEnabled = false
+            botonCapturar.setImageResource(R.drawable.boton_2_trim)
+            tomarFotoYLeer()
+
+            // Parpadeo: vuelve al ojo abierto después de 300 ms.
+            botonCapturar.postDelayed({
+                botonCapturar.setImageResource(R.drawable.boton_1_trim)
+                botonCapturar.isEnabled = true
+            }, 300L)
+        }
         // Ocultamos el texto en pantalla; todo se comunica mediante voz.
         mensajeCamara.visibility = View.GONE
 
@@ -101,12 +118,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             this,
             object : GestureDetector.SimpleOnGestureListener() {
                 override fun onDown(e: MotionEvent): Boolean = true
-
-                // Doble toque: fotografía del documento y OCR.
-                override fun onDoubleTap(e: MotionEvent): Boolean {
-                    tomarFotoYLeer()
-                    return true
-                }
 
                 // Pulsación larga: escuchar una instrucción de voz.
                 override fun onLongPress(e: MotionEvent) {
@@ -125,14 +136,22 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     val diferenciaY = e2.y - e1.y
                     val distanciaMinima = 100 * resources.displayMetrics.density
 
+
                     if (
-                        diferenciaY < -distanciaMinima &&
-                        abs(diferenciaY) > abs(diferenciaX) &&
-                        abs(velocityY) > 300
+                        diferenciaX > distanciaMinima &&
+                        abs(diferenciaX) > abs(diferenciaY) &&
+                        abs(velocityX) > 300
                     ) {
-                        alternarLinterna()
+                        // Abrir la galería al deslizar hacia la derecha
+                        val intent = Intent(
+                            this@MainActivity,
+                            GaleriaActivity::class.java
+                        )
+
+                        startActivity(intent)
                         return true
                     }
+
                     if (
                         diferenciaX > distanciaMinima &&
                         abs(diferenciaX) > abs(diferenciaY) &&
@@ -191,9 +210,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
         })
         hablar(
-            "Hola, soy PlainSight. Doble toque para escanear un documento. " +
-                    "Mantén pulsada la pantalla para darme un comando. " +
-                    "Desliza a la derecha para escuchar tu historial."
+            "Hola, soy PlainSight. Presiona en la parte central inferior de la pantalla para escanear un documento. " +
+                    "Mantén pulsada la cámara para darme un comando. " +
+                    "Desliza a la derecha para consultar tu historial."
         )
     }
 

@@ -26,6 +26,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
 
+        <!-- pantalla de galería -->
+        <activity
+            android:name=".GaleriaActivity"
+            android:exported="false" />
+
         <activity
             android:name=".MainActivity"
             android:exported="false" />
